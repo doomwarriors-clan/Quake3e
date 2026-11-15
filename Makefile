@@ -597,6 +597,7 @@ else
   SHLIBLDFLAGS = -shared $(LDFLAGS)
 
   LDFLAGS += -lm
+  LDFLAGS += -lpthread		# botctl external-control channel listener thread
   LDFLAGS += -Wl,--gc-sections -fvisibility=hidden
 
   ifeq ($(USE_SDL),1)
@@ -1310,6 +1311,7 @@ $(B)/$(TARGET_RENDV): $(Q3RENDVOBJ)
 
 Q3DOBJ = \
   $(B)/ded/sv_bot.o \
+  $(B)/ded/botctl.o \
   $(B)/ded/sv_client.o \
   $(B)/ded/sv_ccmds.o \
   $(B)/ded/sv_filter.o \

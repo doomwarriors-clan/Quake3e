@@ -448,6 +448,15 @@ void SV_DropClient( client_t *drop, const char *reason );
 qboolean SV_ExecuteClientCommand( client_t *cl, const char *s );
 void SV_ClientThink( client_t *cl, usercmd_t *cmd );
 
+//
+// botctl.c -- external per-frame bot control channel (RL bot project)
+//
+void Botctl_Init( void );		// register cvars (called from SV_Init)
+void Botctl_Frame( int time );		// replay staged usercmds (called from SV_RunFrame, before the game frame)
+void Botctl_Snapshot( int time );	// build a requested state dump (called from SV_RunFrame, after the game frame)
+qboolean Botctl_IsManaged( int clientNum );	// client is driven by an external sidecar
+void Botctl_Shutdown( void );		// stop thread + free (called from SV_Shutdown)
+
 int SV_SendDownloadMessages( void );
 int SV_SendQueuedMessages( void );
 

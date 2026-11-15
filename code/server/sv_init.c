@@ -825,6 +825,8 @@ void SV_Init( void )
 
 	SV_AddOperatorCommands();
 
+	Botctl_Init();	// external bot control channel (no-op unless botctl_enable 1)
+
 	if ( com_dedicated->integer )
 		SV_AddDedicatedCommands();
 
@@ -1033,6 +1035,8 @@ void SV_Shutdown( const char *finalmsg ) {
 	}
 
 	Com_Printf( "----- Server Shutdown (%s) -----\n", finalmsg );
+
+	Botctl_Shutdown();	// stop the external bot control channel
 
 #ifdef USE_IPV6
 	NET_LeaveMulticast6();

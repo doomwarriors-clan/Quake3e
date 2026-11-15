@@ -345,7 +345,10 @@ static void SV_MapRestart_f( void ) {
 		// don't delta from pre-map_restart messages
 		client->deltaStart = client->netchan.outgoingSequence;
 
-		if ( client->netchan.remoteAddress.type == NA_BOT ) {
+		// botctl-managed clients reconnect as regular players, exactly like
+		// their initial connection (Botctl_DoAdd passes isBot=qfalse); the
+		// game's AI setup path rejects them when bot_enable is 0
+		if ( client->netchan.remoteAddress.type == NA_BOT && !Botctl_IsManaged( i ) ) {
 			isBot = qtrue;
 		} else {
 			isBot = qfalse;
