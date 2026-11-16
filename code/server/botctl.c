@@ -1056,8 +1056,14 @@ static int Botctl_SubmitRequest( int type, const char *name, const char *team, i
 		bc_sleep_ms( 2 );
 		if ( ++timeout > 1000 ) {	// ~2 s
 			// withdraw the request: the server thread's completion check
-			// (Botctl_Frame, seq compare) will then discard the result, so a
-			// late ADD cannot resurrect a client the sidecar does not know
+			// (Botctl_Frame, seq compare) discards the result of a withdrawn
+			// request, so a late ADD cannot resurrect a client the sidecar
+			// does not know about. Narrow race that remains: if the server
+			// thread had already copied the request when this timeout fires,
+			// the action still happens (the client exists) but its result is
+			// discarded: the client shows up in LIST and is dropped when
+			// the connection ends. Harmless for the sidecar protocol (which
+			// reconnects), but not strictly impossible.
 			pthread_mutex_lock( &s_lock );
 			if ( !s_req.done && s_req.seq == s_req_seq ) {
 				s_req_valid = qfalse;
