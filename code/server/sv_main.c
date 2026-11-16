@@ -1435,14 +1435,16 @@ void SV_Frame( int msec ) {
 		sv.time += frameMsec;
 
 		// replay external bot (botctl) usercmds before the game frame, so their
-		// P_Think runs with this frame's time (no-op unless botctl_enable 1)
+		// P_Think runs with this frame's time (compiles away unless the build
+		// has USE_BOTCTL=1; inert at runtime unless botctl_enable 1)
 		Botctl_Frame( sv.time );
 
 		// let everything in the world think and move
 		VM_Call( gvm, 1, GAME_RUN_FRAME, sv.time );
 
 		// state dumps after the game frame, so they see this frame's results
-		// (no-op unless a sidecar requested a snapshot and botctl_enable 1)
+		// (compiles away unless the build has USE_BOTCTL=1; only does work
+		// when a sidecar requested a snapshot and botctl_enable 1)
 		Botctl_Snapshot( sv.time );
 #ifdef USE_MV
 		svs.emptyFrame = qfalse; // ok, run recorder

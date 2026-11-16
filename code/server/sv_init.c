@@ -686,7 +686,16 @@ void SV_SpawnServer( const char *mapname, qboolean killBots ) {
 					SV_DropClient( &svs.clients[i], "was kicked" );
 					continue;
 				}
-				isBot = qtrue;
+				// botctl-managed clients are NA_BOT slots that are driven as
+				// regular players: reconnect them the same way SV_MapRestart_f
+				// does, because the game's AI setup path (BotAISetupClient)
+				// would reject them when bot_enable is 0 and would need a
+				// botlib skill/character assignment otherwise
+				if ( Botctl_IsManaged( i ) ) {
+					isBot = qfalse;
+				} else {
+					isBot = qtrue;
+				}
 			}
 			else {
 				isBot = qfalse;
@@ -699,13 +708,15 @@ void SV_SpawnServer( const char *mapname, qboolean killBots ) {
 				// was connected before the level change
 				SV_DropClient( &svs.clients[i], denied );
 			} else {
-				if ( !isBot ) {
+				if ( !isBot && !Botctl_IsManaged( i ) ) {
 					svs.clients[i].gamestateAck = GSA_INIT; // resend gamestate, accept first correct serverId
 					// when we get the next packet from a connected client,
 					// the new gamestate will be sent
 					svs.clients[i].state = CS_CONNECTED;
 					svs.clients[i].gentity = NULL;
 				} else {
+					// botlib bots and packetless botctl clients have no
+					// gamestate handshake: enter the world right away
 					SV_ClientEnterWorld( &svs.clients[i] );
 				}
 			}
@@ -825,7 +836,7 @@ void SV_Init( void )
 
 	SV_AddOperatorCommands();
 
-	Botctl_Init();	// external bot control channel (no-op unless botctl_enable 1)
+	Botctl_Init();	// external bot control channel (no-op unless built with USE_BOTCTL=1; inert unless botctl_enable 1)
 
 	if ( com_dedicated->integer )
 		SV_AddDedicatedCommands();

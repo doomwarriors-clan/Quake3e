@@ -878,6 +878,8 @@ void SV_DropClient( client_t *drop, const char *reason ) {
 		return;		// already dropped
 	}
 
+	Botctl_ClientDropped( (int)( drop - svs.clients ) );	// forget external (botctl) management of this slot
+
 	isBot = drop->netchan.remoteAddress.type == NA_BOT;
 
 	Q_strncpyz( name, drop->name, sizeof( name ) );	// for further DPrintf() because drop->name will be nuked in SV_SetUserinfo()
