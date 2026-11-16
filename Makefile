@@ -43,6 +43,12 @@ USE_OGG_VORBIS    = 1
 USE_SYSTEM_OGG    = 0
 USE_SYSTEM_VORBIS = 0
 
+# External bot control channel (code/server/botctl.c): Unix socket sidecar
+# for the RL bot project. Dedicated servers on POSIX platforms only; with
+# the default 0 the channel is not compiled or linked at all. When 1, it
+# still stays inert at runtime until the botctl_enable cvar is set to 1.
+USE_BOTCTL        = 0
+
 USE_VULKAN       = 1
 USE_OPENGL       = 1
 USE_OPENGL2      = 0
@@ -339,6 +345,18 @@ ifeq ($(USE_MV),1)
   BASE_CFLAGS += -DUSE_MV
 endif
 
+# Windows (mingw) builds do not get the channel at all: botctl.c uses
+# POSIX sockets. The define and the object are gated by the same
+# condition so the server.h declaration and the linked botctl.o can
+# never disagree.
+ifeq ($(USE_BOTCTL),1)
+  ifdef MINGW
+    $(info USE_BOTCTL=1 ignored: the botctl channel is not available in Windows builds)
+  else
+    BASE_CFLAGS += -DUSE_BOTCTL
+  endif
+endif
+
 ifeq ($(USE_CURL),1)
   BASE_CFLAGS += -DUSE_CURL
   ifeq ($(USE_CURL_DLOPEN),1)
@@ -597,7 +615,9 @@ else
   SHLIBLDFLAGS = -shared $(LDFLAGS)
 
   LDFLAGS += -lm
-  LDFLAGS += -lpthread		# botctl external-control channel listener thread
+  ifeq ($(USE_BOTCTL),1)
+    LDFLAGS += -lpthread	# botctl listener thread (only referenced when USE_BOTCTL=1)
+  endif
   LDFLAGS += -Wl,--gc-sections -fvisibility=hidden
 
   ifeq ($(USE_SDL),1)
@@ -1311,7 +1331,6 @@ $(B)/$(TARGET_RENDV): $(Q3RENDVOBJ)
 
 Q3DOBJ = \
   $(B)/ded/sv_bot.o \
-  $(B)/ded/botctl.o \
   $(B)/ded/sv_client.o \
   $(B)/ded/sv_ccmds.o \
   $(B)/ded/sv_filter.o \
@@ -1375,6 +1394,12 @@ Q3DOBJ = \
   $(B)/ded/l_precomp.o \
   $(B)/ded/l_script.o \
   $(B)/ded/l_struct.o
+
+ifeq ($(USE_BOTCTL),1)
+  ifndef MINGW
+    Q3DOBJ += $(B)/ded/botctl.o	# external bot control channel (dedicated only)
+  endif
+endif
 
 ifdef MINGW
   Q3DOBJ += \
