@@ -1126,7 +1126,9 @@ static void Botctl_HandleConnection( int fd ) {
 		switch ( op ) {
 		case BOTCTL_OP_PING: {
 			const char *pong = "PONG";
-			bc_send_msg( fd, BOTCTL_OP_PING, pong, 4 );
+			if ( bc_send_msg( fd, BOTCTL_OP_PING, pong, 4 ) < 0 ) {
+				conn_broke = qtrue;
+			}
 			break;
 		}
 
@@ -1147,7 +1149,9 @@ static void Botctl_HandleConnection( int fd ) {
 			res = Botctl_SubmitRequest( BOTCTL_OP_ADD, name, team, 0, NULL );
 			{
 				int32_t	out = (int32_t)res;
-				bc_send_msg( fd, BOTCTL_OP_ADD, &out, 4 );
+				if ( bc_send_msg( fd, BOTCTL_OP_ADD, &out, 4 ) < 0 ) {
+					conn_broke = qtrue;
+				}
 			}
 			break;
 		}
@@ -1162,7 +1166,9 @@ static void Botctl_HandleConnection( int fd ) {
 			res = Botctl_SubmitRequest( BOTCTL_OP_REMOVE, NULL, NULL, (int)clientNum, NULL );
 			{
 				int32_t	out = (int32_t)res;
-				bc_send_msg( fd, BOTCTL_OP_REMOVE, &out, 4 );
+				if ( bc_send_msg( fd, BOTCTL_OP_REMOVE, &out, 4 ) < 0 ) {
+					conn_broke = qtrue;
+				}
 			}
 			break;
 		}
@@ -1186,7 +1192,9 @@ static void Botctl_HandleConnection( int fd ) {
 			res = Botctl_SubmitRequest( BOTCTL_OP_TEXT, NULL, NULL, (int)clientNum, text );
 			{
 				int32_t	out = (int32_t)res;
-				bc_send_msg( fd, BOTCTL_OP_TEXT, &out, 4 );
+				if ( bc_send_msg( fd, BOTCTL_OP_TEXT, &out, 4 ) < 0 ) {
+					conn_broke = qtrue;
+				}
 			}
 			break;
 		}
@@ -1238,7 +1246,9 @@ static void Botctl_HandleConnection( int fd ) {
 				if ( outlen > snap_cap ) {
 					byte	*nb = (byte *)realloc( snap_out, outlen );
 					if ( !nb ) {
-						bc_send_msg( fd, BOTCTL_OP_SNAP, NULL, 0 );
+						if ( bc_send_msg( fd, BOTCTL_OP_SNAP, NULL, 0 ) < 0 ) {
+							conn_broke = qtrue;
+						}
 						break;
 					}
 					snap_out = nb;
@@ -1247,10 +1257,14 @@ static void Botctl_HandleConnection( int fd ) {
 				pthread_mutex_lock( &s_lock );
 				memcpy( snap_out, snap_buf, outlen );
 				pthread_mutex_unlock( &s_lock );
-				bc_send_msg( fd, BOTCTL_OP_SNAP, snap_out, (int)outlen );
+				if ( bc_send_msg( fd, BOTCTL_OP_SNAP, snap_out, (int)outlen ) < 0 ) {
+					conn_broke = qtrue;
+				}
 			} else {
 				// send an empty snap so the sidecar doesn't block
-				bc_send_msg( fd, BOTCTL_OP_SNAP, NULL, 0 );
+				if ( bc_send_msg( fd, BOTCTL_OP_SNAP, NULL, 0 ) < 0 ) {
+					conn_broke = qtrue;
+				}
 			}
 			break;
 		}
@@ -1280,18 +1294,32 @@ static void Botctl_HandleConnection( int fd ) {
 			}
 			len = w.len;
 			pthread_mutex_unlock( &s_lock );
-			bc_send_msg( fd, BOTCTL_OP_LIST, tmp, len );
+			if ( bc_send_msg( fd, BOTCTL_OP_LIST, tmp, len ) < 0 ) {
+				conn_broke = qtrue;
+			}
 			break;
 		}
 
 		default:
 			break;
 		}
+
+		if ( conn_broke ) {
+			// a reply could not be delivered: the peer stopped consuming
+			// (SO_SNDTIMEO fired) or the socket is gone, and a partially
+			// sent frame may already sit on the wire: the stream can no
+			// longer be trusted. Close instead of continuing with silently
+			// dropped replies; the sidecar reconnects. Its managed clients
+			// are dropped exactly like on any other connection loss
+			// (s_sidecar_lost below).
+			break;
+		}
 	}
 
 	free( snap_out );
 	if ( conn_broke && !s_shutdown ) {
-		// the sidecar died: Botctl_Frame will remove the clients it drove
+		// the sidecar died or a reply send failed: Botctl_Frame will remove
+		// the clients it drove
 		Botctl_LogQ( "botctl: sidecar disconnected, removing its managed clients" );
 		s_sidecar_lost = qtrue;
 	} else {
