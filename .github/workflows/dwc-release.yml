@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Build
-        run: make -j"$(nproc)" BUILD_CLIENT=0 BUILD_SERVER=1 USE_MV=1 release
+        run: make -j"$(nproc)" BUILD_CLIENT=0 BUILD_SERVER=1 USE_MV=1 USE_BOTCTL=1 release
 
       - name: Package
         id: pkg
@@ -42,7 +42,7 @@ jobs:
           {
             echo "Dedicated server for the doomwarriors servers, branch \`dwc\` at $(git rev-parse --short=7 HEAD)."
             echo
-            echo "Built on Debian bookworm with \`USE_MV=1\` (server-side multiview demos)."
+            echo "Built on Debian bookworm with \`USE_MV=1\` (server-side multiview demos) and \`USE_BOTCTL=1\` (includes the botctl external-bot control channel; inert unless \`botctl_enable 1\` is set)."
             echo
             echo "SHA-256: \`$(cut -d' ' -f1 "$name.sha256")\`"
           } > notes.md
