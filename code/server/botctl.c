@@ -888,8 +888,18 @@ void Botctl_Snapshot( int time ) {
 static int bc_sendall( int fd, const void *buf, int len ) {
 	const byte	*p = (const byte *)buf;
 	int			sent = 0;
+	// A peer that closed the socket must not be able to kill the server:
+	// without this, send() to a closed peer raises SIGPIPE, whose default
+	// action terminates the process (exit 141) BEFORE the -1/EPIPE below
+	// is ever visible. macOS/BSD have no MSG_NOSIGNAL; the listener sets
+	// SO_NOSIGPIPE per connection there instead.
+#if defined(__linux__) || defined(__linux)
+	int			flags = MSG_NOSIGNAL;
+#else
+	int			flags = 0;
+#endif
 	while ( sent < len ) {
-		int		n = (int)send( fd, p + sent, len - sent, 0 );
+		int		n = (int)send( fd, p + sent, len - sent, flags );
 		if ( n <= 0 ) {
 			if ( n < 0 && errno == EINTR ) {
 				continue;
@@ -1418,6 +1428,13 @@ static void *Botctl_ListenerThread( void *arg ) {
 		}
 		setsockopt( conn, SOL_SOCKET, SO_RCVTIMEO, &rcvtv, sizeof( rcvtv ) );
 		setsockopt( conn, SOL_SOCKET, SO_SNDTIMEO, &sndtv, sizeof( sndtv ) );
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+		{
+			// no MSG_NOSIGNAL here: suppress SIGPIPE per socket
+			int	no_sigpipe = 1;
+			setsockopt( conn, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof( no_sigpipe ) );
+		}
+#endif
 		Botctl_HandleConnection( conn );
 		// keep listening: the sidecar may reconnect (it also has to survive
 		// the server's own map/periodic restarts, which close this socket)
