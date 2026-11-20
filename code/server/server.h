@@ -448,6 +448,31 @@ void SV_DropClient( client_t *drop, const char *reason );
 qboolean SV_ExecuteClientCommand( client_t *cl, const char *s );
 void SV_ClientThink( client_t *cl, usercmd_t *cmd );
 
+//
+// botctl.c -- external per-frame bot control channel (RL bot project)
+//
+// The real functions are compiled and linked only into the dedicated
+// server (DEDICATED) when the Makefile was configured with USE_BOTCTL=1.
+// In every other configuration the hooks below expand to no-ops, so the
+// client and listen-server binaries never reference botctl.o and stay
+// identical to stock.
+//
+#if defined(USE_BOTCTL) && defined(DEDICATED)
+void Botctl_Init( void );		// register cvars (called from SV_Init)
+void Botctl_Frame( int time );		// replay staged usercmds (called from SV_RunFrame, before the game frame)
+void Botctl_Snapshot( int time );	// build a requested state dump (called from SV_RunFrame, after the game frame)
+qboolean Botctl_IsManaged( int clientNum );	// client is driven by an external sidecar
+void Botctl_ClientDropped( int clientNum );	// clear managed state when a client goes away (SV_DropClient / SV_BotFreeClient)
+void Botctl_Shutdown( void );		// stop thread + free (called from SV_Shutdown)
+#else
+#define Botctl_Init()				do {} while ( 0 )
+#define Botctl_Frame( time )			do {} while ( 0 )
+#define Botctl_Snapshot( time )			do {} while ( 0 )
+#define Botctl_IsManaged( clientNum )		( qfalse )
+#define Botctl_ClientDropped( clientNum )		do {} while ( 0 )
+#define Botctl_Shutdown()				do {} while ( 0 )
+#endif
+
 int SV_SendDownloadMessages( void );
 int SV_SendQueuedMessages( void );
 

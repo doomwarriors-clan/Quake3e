@@ -93,6 +93,7 @@ void SV_BotFreeClient( int clientNum ) {
 	if ( cl->gentity ) {
 		cl->gentity->r.svFlags &= ~SVF_BOT;
 	}
+	Botctl_ClientDropped( clientNum );	// forget external (botctl) management of this slot
 }
 
 
